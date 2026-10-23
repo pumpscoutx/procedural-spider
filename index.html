@@ -1,0 +1,2500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05070c">
+<meta name="description" content="A self-stabilizing procedural spider you can walk over any terrain. Analytic IK legs, a flexible articulated body, and a leap that latches onto walls. Built with Three.js.">
+<title>Procedural Spider</title>
+<style>
+:root{--cyan:#22d3ee;--mag:#ff3bd4;--ink:#cfe9f0;--bg:#05070c;--line:rgba(34,211,238,.22);--font:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--font);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{position:fixed;inset:0}
+canvas{display:block;touch-action:none}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;pointer-events:none;z-index:10}
+#title{font-size:11px;letter-spacing:.16em;color:#fff;text-shadow:0 0 8px rgba(34,211,238,.4)}
+#title span{color:var(--cyan)}
+#stats{font-size:10px;letter-spacing:.08em;color:#7fb6c4;text-align:right;line-height:1.5}
+#stats b{color:var(--mag)}
+#stats i{color:var(--cyan);font-style:normal}
+#hint{position:fixed;left:50%;bottom:14px;transform:translate(-50%);text-align:center;font-size:9.5px;letter-spacing:.1em;color:#6a98a6;z-index:10;pointer-events:none;white-space:nowrap}
+#reset{position:fixed;bottom:16px;right:14px;z-index:12;font:inherit;font-size:9.5px;letter-spacing:.1em;color:var(--cyan);background:#090e16cc;border:1px solid var(--line);border-radius:7px;padding:7px 10px;cursor:pointer;pointer-events:auto;backdrop-filter:blur(8px)}
+#reset:hover{border-color:var(--cyan);color:#fff}
+#joy{position:fixed;width:104px;height:104px;border-radius:50%;border:1.5px solid rgba(34,211,238,.4);background:radial-gradient(circle,#22d3ee1a,#22d3ee05);z-index:11;display:none;pointer-events:none;margin:-52px 0 0 -52px;box-shadow:0 0 24px #22d3ee2e}
+#knob{position:fixed;width:46px;height:46px;border-radius:50%;margin:-23px 0 0 -23px;z-index:11;background:radial-gradient(circle,#22d3eed9,#22d3ee59);border:1px solid rgba(255,255,255,.55);display:none;pointer-events:none;box-shadow:0 0 18px #22d3ee80}
+#sprint{position:fixed;right:26px;bottom:42px;width:74px;height:74px;border-radius:50%;z-index:12;border:1.5px solid rgba(255,59,212,.45);background:radial-gradient(circle,#ff3bd424,#ff3bd408);color:#ffd9f4;font-size:9px;letter-spacing:.1em;display:none;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;text-align:center;line-height:1.3}
+#sprint.active{background:radial-gradient(circle,#ff3bd466,#ff3bd41a);border-color:var(--mag)}
+#jump{position:fixed;right:112px;bottom:42px;width:74px;height:74px;border-radius:50%;z-index:12;border:1.5px solid rgba(34,211,238,.5);background:radial-gradient(circle,#22d3ee24,#22d3ee08);color:#cfeffa;font-size:10px;letter-spacing:.1em;display:none;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;text-align:center;line-height:1.3;-webkit-user-select:none;user-select:none}
+#jump:active{background:radial-gradient(circle,#22d3ee66,#22d3ee1a);border-color:var(--cyan)}
+#panel{position:fixed;left:10px;top:62px;z-index:13;width:184px;max-height:74vh;overflow:auto;background:#070b12db;border:1px solid var(--line);border-radius:9px;backdrop-filter:blur(9px);font-size:9.5px;letter-spacing:.06em;color:#aee3ef;pointer-events:auto}
+#panelHead{padding:8px 10px;cursor:pointer;color:#fff;letter-spacing:.13em;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+#panel.closed #panelBody{display:none}
+#panelBody{padding:8px 10px}
+.sld{margin:7px 0}
+.sld label{display:flex;justify-content:space-between;color:#8fc7d4;margin-bottom:3px}
+.sld label b{color:var(--mag);font-weight:400}
+.sld input{width:100%;height:3px;-webkit-appearance:none;appearance:none;background:#22d3ee40;border-radius:3px;outline:none}
+.sld input::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 7px #22d3ee99}
+.sld input::-moz-range-thumb{width:13px;height:13px;border:none;border-radius:50%;background:var(--cyan);cursor:pointer}
+.tog{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:2px 0 10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.tog>span{color:#cfe9f0;letter-spacing:.12em}
+.tog b{font-weight:400;color:var(--mag);padding:3px 8px;border-radius:6px;border:1px solid rgba(255,59,212,.5);background:#ff3bd414;transition:all .15s}
+.tog.on b{color:var(--bg);background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 8px #22d3ee80}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:30px;color:#ff9bd4;background:#0a0e16;z-index:99;font-size:13px;text-align:center}
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.169.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div id="title">PROCEDURAL <span>&middot;</span> SPIDER</div>
+  <div id="stats"><span id="fps">--</span> FPS<br>SPEED <b id="spd">0.0</b><br><i id="grade">FLAT</i></div>
+</div>
+<button id="reset">RESET</button>
+<div id="hint"></div>
+
+<div id="joy"></div><div id="knob"></div>
+<div id="sprint">BOOST</div>
+<div id="jump">JUMP</div>
+
+<div id="panel">
+  <div id="panelHead"><span>TUNING</span><span id="panelTog">&ndash;</span></div>
+  <div id="panelBody"><div id="sliders"></div></div>
+</div>
+
+<div id="err"></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================================
+   SEEDED RANDOM
+   ========================================================================= */
+let _rngState = 0x2f6e2b1 >>> 0;
+function srand(seed) { _rngState = seed >>> 0; }
+function rand() {
+  _rngState = (_rngState + 0x6D2B79F5) >>> 0;
+  let t = _rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const RANDOM_SEED = 20240917;
+srand(RANDOM_SEED);
+
+/* =========================================================================
+   SMALL MATH HELPERS
+   ========================================================================= */
+const UP = new THREE.Vector3(0, 1, 0);
+const DOWN = new THREE.Vector3(0, -1, 0);
+
+const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (x) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
+const wrap01 = (x) => x - Math.floor(x);
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+const lerpAngle = (a, b, t) => a + wrapAngle(b - a) * t;
+
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _segDir = new THREE.Vector3();
+
+/* =========================================================================
+   TERRAIN HEIGHT FIELD
+   ========================================================================= */
+const SCALE = 2;                // global world scale multiplier
+const WORLD = 130 * SCALE;      // terrain extent (square)
+
+function fbm(x, z) {
+  let sum = 0, amp = 1, freq = 0.06, norm = 0;
+  for (let i = 0; i < 5; i++) {
+    sum += amp * Math.sin(x * freq + i * 1.3) * Math.cos(z * freq * 1.07 + i * 2.1);
+    norm += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return sum / norm;
+}
+
+function ridge(x, z) {
+  const e = 1 - Math.abs(Math.sin(x * 0.07) * Math.cos(z * 0.066));
+  return e * e;
+}
+
+const BUMPS = [
+  { x: 30, z: -26, amp: 10, r: 10 },
+  { x: -34, z: 20, amp: 8, r: 9 },
+  { x: -14, z: -40, amp: 6, r: 7 },
+  { x: 40, z: 34, amp: 7, r: 8 },
+  { x: -30, z: -12, amp: -5, r: 6 },
+  { x: 20, z: 14, amp: -4, r: 5 }
+];
+
+function heightRaw(x, z) {
+  const ex = x + 6 * Math.sin(z * 0.05 + 1);
+  const ez = z + 6 * Math.cos(x * 0.045 + 2);
+  let h = 6 * fbm(ex * 0.5, ez * 0.5)
+        + 2.3 * fbm(ex * 1.3 + 10, ez * 1.3 + 10)
+        + 3.4 * ridge(ex * 0.5, ez * 0.5);
+  for (const b of BUMPS) {
+    const dx = x - b.x, dz = z - b.z;
+    h += b.amp * Math.exp(-(dx * dx + dz * dz) / (2 * b.r * b.r));
+  }
+  const r = Math.hypot(x, z);
+  return h * (0.2 + 0.8 * smoothstep((r - 8) / 12));
+}
+
+function height(x, z) { return SCALE * heightRaw(x / SCALE, z / SCALE); }
+
+function terrainNormal(x, z) {
+  const dx = (height(x + 0.4, z) - height(x - 0.4, z)) / (2 * 0.4);
+  const dz = (height(x, z + 0.4) - height(x, z - 0.4)) / (2 * 0.4);
+  return new THREE.Vector3(-dx, 1, -dz).normalize();
+}
+
+/* =========================================================================
+   COLLIDERS + RAYCAST / PENETRATION QUERIES
+   ========================================================================= */
+const colliders = [];
+
+function clearColliders() { colliders.length = 0; }
+
+function addSphereCollider(center, radius) {
+  colliders.push({ kind: 'sphere', c: center.clone(), r: radius, br: radius, wall: false });
+}
+
+function addBoxCollider(pos, half, quat) {
+  const q = quat ? quat.clone() : new THREE.Quaternion();
+  colliders.push({
+    kind: 'box', p: pos.clone(), h: half.clone(),
+    q, iq: q.clone().invert(), br: half.length(), wall: half.y > 1.2
+  });
+}
+
+function raySphere(origin, dir, s, maxT) {
+  const m = origin.clone().sub(s.c);
+  const b = m.dot(dir);
+  const c = m.dot(m) - s.r * s.r;
+  const disc = b * b - c;
+  if (disc < 0) return null;
+  const sq = Math.sqrt(disc);
+  let t = -b - sq;
+  if (t < 0) t = -b + sq;
+  if (t < 0 || t > maxT) return null;
+  const point = origin.clone().addScaledVector(dir, t);
+  return { t, n: point.clone().sub(s.c).normalize(), point };
+}
+
+function rayBox(origin, dir, box, maxT) {
+  const o = origin.clone().sub(box.p).applyQuaternion(box.iq);
+  const d = dir.clone().applyQuaternion(box.iq);
+  const oa = [o.x, o.y, o.z], da = [d.x, d.y, d.z], ha = [box.h.x, box.h.y, box.h.z];
+  let tmin = -Infinity, tmax = Infinity, axis = 0, sign = 1;
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(da[i]) < 1e-8) {
+      if (oa[i] < -ha[i] || oa[i] > ha[i]) return null;
+    } else {
+      let t1 = (-ha[i] - oa[i]) / da[i];
+      let t2 = (ha[i] - oa[i]) / da[i];
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+      if (t1 > tmin) { tmin = t1; axis = i; sign = da[i] < 0 ? 1 : -1; }
+      if (t2 < tmax) tmax = t2;
+      if (tmin > tmax) return null;
+    }
+  }
+  let t = tmin;
+  if (t < 0) t = tmax;
+  if (t < 0 || t > maxT) return null;
+  const n = [0, 0, 0];
+  n[axis] = sign;
+  return {
+    t,
+    n: new THREE.Vector3(n[0], n[1], n[2]).applyQuaternion(box.q).normalize(),
+    point: origin.clone().addScaledVector(dir, t)
+  };
+}
+
+/** signed distance + outward normal of a point against a collider */
+function penetration(point, c) {
+  if (c.kind === 'sphere') {
+    const d = point.clone().sub(c.c);
+    const l = d.length() || 1e-6;
+    return { d: l - c.r, n: d.multiplyScalar(1 / l) };
+  }
+  const e = point.clone().sub(c.p).applyQuaternion(c.iq);
+  if (Math.abs(e.x) < c.h.x && Math.abs(e.y) < c.h.y && Math.abs(e.z) < c.h.z) {
+    const px = c.h.x - Math.abs(e.x);
+    const py = c.h.y - Math.abs(e.y);
+    const pz = c.h.z - Math.abs(e.z);
+    let n, d;
+    if (px <= py && px <= pz) { n = new THREE.Vector3(Math.sign(e.x) || 1, 0, 0); d = px; }
+    else if (py <= pz) { n = new THREE.Vector3(0, Math.sign(e.y) || 1, 0); d = py; }
+    else { n = new THREE.Vector3(0, 0, Math.sign(e.z) || 1); d = pz; }
+    return { d: -d, n: n.applyQuaternion(c.q).normalize() };
+  }
+  const cl = new THREE.Vector3(
+    clamp(e.x, -c.h.x, c.h.x),
+    clamp(e.y, -c.h.y, c.h.y),
+    clamp(e.z, -c.h.z, c.h.z)
+  );
+  const r = e.clone().sub(cl);
+  const a = r.length() || 1e-6;
+  return { d: a, n: r.multiplyScalar(1 / a).applyQuaternion(c.q).normalize() };
+}
+
+/** ray against every collider plus a heightfield march; returns nearest hit */
+function raycastWorld(origin, dir, maxT) {
+  let hit = null;
+  let best = maxT;
+
+  for (const c of colliders) {
+    const h = c.kind === 'sphere'
+      ? raySphere(origin, dir, c, best)
+      : rayBox(origin, dir, c, best);
+    if (h && h.t < best) { hit = h; best = h.t; }
+  }
+
+  if (dir.y < 0.3) {
+    const steps = Math.min(Math.ceil(best / 0.45), 130);
+    for (let i = 1; i <= steps; i++) {
+      const s = i * 0.45;
+      if (s > best) break;
+      const x = origin.x + dir.x * s;
+      const y = origin.y + dir.y * s;
+      const z = origin.z + dir.z * s;
+      if (y - height(x, z) <= 0) {
+        let lo = s - 0.45, hi = s;
+        for (let k = 0; k < 5; k++) {
+          const mid = (lo + hi) * 0.5;
+          const mx = origin.x + dir.x * mid;
+          const my = origin.y + dir.y * mid;
+          const mz = origin.z + dir.z * mid;
+          if (my - height(mx, mz) <= 0) hi = mid; else lo = mid;
+        }
+        const hx = origin.x + dir.x * hi;
+        const hz = origin.z + dir.z * hi;
+        if (hi < best) {
+          hit = { t: hi, n: terrainNormal(hx, hz), point: new THREE.Vector3(hx, height(hx, hz), hz) };
+          best = hi;
+        }
+        break;
+      }
+    }
+  }
+  return hit;
+}
+
+/** is the straight segment between two points blocked by a collider? */
+function segmentBlocked(from, to) {
+  const e = to.clone().sub(from);
+  const len = e.length();
+  if (len < 0.5) return false;
+  e.multiplyScalar(1 / len);
+  const start = from.clone().addScaledVector(e, 0.18);
+  const maxT = len - 0.2;
+  if (maxT <= 0) return false;
+  for (const c of colliders) {
+    const h = c.kind === 'sphere'
+      ? raySphere(start, e, c, maxT)
+      : rayBox(start, e, c, maxT);
+    if (h) return true;
+  }
+  return false;
+}
+
+/** maximum downward penetration of a segment against a list of colliders */
+function corridorPenalty(a, b, list, radius) {
+  let maxPen = 0;
+  const p = new THREE.Vector3();
+  for (let i = 0; i <= 5; i++) {
+    p.copy(a).lerp(b, i * 0.2);
+    for (const c of list) {
+      const d = radius - penetration(p, c).d;
+      if (d > maxPen) maxPen = d;
+    }
+  }
+  return maxPen;
+}
+
+/* =========================================================================
+   SHARED GEOMETRY / MATERIAL HELPERS
+   ========================================================================= */
+const GEO = {
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 8),
+  joint: new THREE.SphereGeometry(1, 10, 8)
+};
+
+function bodyMaterial(color, emissive) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.45,
+    metalness: 0.25,
+    emissive: emissive || color,
+    emissiveIntensity: emissive ? 0.5 : 0.08
+  });
+}
+
+/** orient a unit cylinder mesh between two world points */
+function setSegment(mesh, from, to, radius) {
+  _segDir.subVectors(to, from);
+  const len = _segDir.length() || 0.001;
+  mesh.position.copy(from).add(to).multiplyScalar(0.5);
+  mesh.scale.set(radius, len, radius);
+  mesh.quaternion.setFromUnitVectors(UP, _segDir.normalize());
+}
+
+/* =========================================================================
+   ANALYTIC 2-BONE IK (knee placed along a pole direction)
+   ========================================================================= */
+const _ikAxis = new THREE.Vector3();
+const _ikPerp = new THREE.Vector3();
+
+function solveIK(root, target, l1, l2, pole, restAxis, out) {
+  _ikAxis.subVectors(target, root);
+  let d = _ikAxis.length();
+  if (d < 1e-6) { _ikAxis.set(0, 1, 0); d = 1e-6; }
+  _ikAxis.multiplyScalar(1 / d);
+
+  const maxD = (l1 + l2) * 0.999;
+  const minD = Math.abs(l1 - l2) + 0.0005;
+  const dd = clamp(d, minD, maxD);
+
+  const x = (dd * dd + l1 * l1 - l2 * l2) / (2 * dd);
+  const h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
+
+  _ikPerp.copy(pole);
+  _ikPerp.addScaledVector(_ikAxis, -_ikPerp.dot(_ikAxis));
+  if (_ikPerp.lengthSq() < 1e-8) {
+    _ikPerp.copy(restAxis);
+    _ikPerp.addScaledVector(_ikAxis, -_ikPerp.dot(_ikAxis));
+    if (_ikPerp.lengthSq() < 1e-8) {
+      _ikPerp.set(_ikAxis.y, -_ikAxis.x, 0);
+      if (_ikPerp.lengthSq() < 1e-8) _ikPerp.set(0, 0, 1);
+    }
+  }
+  _ikPerp.normalize();
+
+  out.copy(root).addScaledVector(_ikAxis, x).addScaledVector(_ikPerp, h);
+  return out;
+}
+
+const ikSettings = { aRange: 3.14, aSamp: 8, decomposed: true };
+
+function solveKnee(root, target, l1, l2, pole, restAxis, near, legRadius) {
+  if (!near) {
+    return solveIK(root, target, l1, l2, pole, restAxis, new THREE.Vector3());
+  }
+  const axis = target.clone().sub(root);
+  const L = axis.length() || 1e-6;
+  axis.multiplyScalar(1 / L);
+
+  const range = ikSettings.aRange;
+  const samples = Math.max(1, ikSettings.aSamp | 0);
+  const pad = legRadius + 0.05;
+
+  let bestCost = 1e9;
+  let bestKnee = null;
+  for (let q = 0; q <= samples * 2; q++) {
+    const ang = q === 0 ? 0 : ((q & 1) ? 1 : -1) * Math.ceil(q / 2) * (range / samples);
+    const p = pole.clone().applyAxisAngle(axis, ang).normalize();
+    const knee = solveIK(root, target, l1, l2, p, restAxis, new THREE.Vector3());
+    const cost = corridorPenalty(root, knee, near, pad)
+               + corridorPenalty(knee, target, near, pad)
+               + corridorPenalty(target, target, near, pad)
+               + Math.abs(ang) * 0.008;
+    if (cost < bestCost) { bestCost = cost; bestKnee = knee; }
+  }
+  return bestKnee;
+}
+
+/* =========================================================================
+   ENVIRONMENT (terrain, sky, lights, structures, dust)
+   ========================================================================= */
+const COARSE = matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+
+class Environment {
+  constructor(scene) {
+    this.scene = scene;
+    this.envGroup = new THREE.Group();
+    scene.add(this.envGroup);
+    clearColliders();
+    this._lights();
+    this._sky();
+    this._terrain();
+    this._environment();
+    this._dust();
+  }
+
+  _lights() {
+    this.scene.add(new THREE.HemisphereLight(0x2FBFE6, 0x281033, 0.75));
+    this.scene.add(new THREE.AmbientLight(0x223044, 0.35));
+
+    const sun = new THREE.DirectionalLight(0xFFF0E2, 1.25);
+    sun.position.set(46, 64, 32);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(COARSE ? 1024 : 2048, COARSE ? 1024 : 2048);
+    sun.shadow.camera.near = 10;
+    sun.shadow.camera.far = 240;
+    sun.shadow.camera.left = -70;
+    sun.shadow.camera.right = 70;
+    sun.shadow.camera.top = 70;
+    sun.shadow.camera.bottom = -70;
+    sun.shadow.bias = -6e-4;
+    sun.shadow.normalBias = 0.04;
+    this.scene.add(sun);
+    this.scene.add(sun.target);
+    this.sun = sun;
+
+    const fill = new THREE.DirectionalLight(0xFF3BD4, 0.5);
+    fill.position.set(-38, 22, -42);
+    this.scene.add(fill);
+
+    const rim = new THREE.DirectionalLight(0x22D3EE, 0.28);
+    rim.position.set(8, 12, 40);
+    this.scene.add(rim);
+  }
+
+  _sky() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, '#04050a');
+    g.addColorStop(0.45, '#0a1422');
+    g.addColorStop(0.78, '#10293a');
+    g.addColorStop(0.93, '#16384a');
+    g.addColorStop(1, '#0c1622');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 16, 256);
+    this.scene.background = new THREE.CanvasTexture(canvas);
+    this.scene.fog = new THREE.Fog(0x0E2230, 60, 190);
+  }
+
+  _terrain() {
+    const segments = COARSE ? 180 : 240;
+    const geo = new THREE.PlaneGeometry(WORLD, WORLD, segments, segments);
+    geo.rotateX(-Math.PI / 2);
+
+    const pos = geo.attributes.position;
+    let minY = 1e9, maxY = -1e9;
+    for (let i = 0; i < pos.count; i++) {
+      const y = height(pos.getX(i), pos.getZ(i));
+      pos.setY(i, y);
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    geo.computeVertexNormals();
+
+    const colors = [];
+    const nrm = geo.attributes.normal;
+    const col = new THREE.Color();
+    const cLow = new THREE.Color(0x0C1A22);
+    const cMid = new THREE.Color(0x1C3340);
+    const cHigh = new THREE.Color(0x4F6F7D);
+    const cTop = new THREE.Color(0x86B7C4);
+    const cSlope = new THREE.Color(0x161D28);
+    const cValley = new THREE.Color(0x123E44);
+
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      const d = smoothstep((y - minY) / (maxY - minY + 0.001));
+      const slope = 1 - clamp(nrm.getY(i));
+      col.copy(cLow)
+        .lerp(cMid, smoothstep(d * 1.8))
+        .lerp(cHigh, smoothstep((d - 0.45) * 2.2))
+        .lerp(cTop, smoothstep((d - 0.78) * 3))
+        .lerp(cSlope, smoothstep((slope - 0.35) * 2))
+        .lerp(cValley, smoothstep((0.16 - d) * 1.4) * 0.6);
+      colors.push(col.r, col.g, col.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    this.terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      vertexColors: true, roughness: 0.95, metalness: 0.04
+    }));
+    this.terrain.receiveShadow = true;
+    this.scene.add(this.terrain);
+  }
+
+  _edgeLines(mesh, color, opacity) {
+    const lines = new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry),
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity: opacity || 0.45 })
+    );
+    lines.position.copy(mesh.position);
+    lines.quaternion.copy(mesh.quaternion);
+    lines.scale.copy(mesh.scale);
+    this.envGroup.add(lines);
+  }
+
+  _boulder(x, z, r) {
+    const y = height(x, z);
+    const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), this._matRock);
+    mesh.position.set(x, y + r * 0.5, z);
+    mesh.rotation.set(rand() * 3, rand() * 3, rand() * 3);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.envGroup.add(mesh);
+    addSphereCollider(new THREE.Vector3(x, y + r * 0.5, z), r);
+  }
+
+  _box(x, y, z, hx, hy, hz, quat, color, emissive) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: color || 0x1A2733,
+      roughness: 0.7,
+      metalness: 0.28,
+      emissive: emissive || 0x08222A,
+      emissiveIntensity: emissive ? 0.32 : 0.16,
+      flatShading: true
+    });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, hy * 2, hz * 2), mat);
+    mesh.position.set(x, y, z);
+    if (quat) mesh.quaternion.copy(quat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.envGroup.add(mesh);
+    this._edgeLines(mesh, 0x22D3EE, 0.4);
+    addBoxCollider(new THREE.Vector3(x, y, z), new THREE.Vector3(hx, hy, hz), quat);
+  }
+
+  _pillar(x, z, halfWidth, halfHeight) {
+    const y = height(x, z);
+    const q = new THREE.Quaternion().setFromAxisAngle(UP, rand() * Math.PI * 2);
+    this._box(x, y + halfHeight - 0.4, z, halfWidth, halfHeight, halfWidth * 0.8, q, 0x16304A, 0x1D6F86);
+  }
+
+  _environment() {
+    const t = SCALE;
+    this._matRock = new THREE.MeshStandardMaterial({
+      color: 0x1B2330, roughness: 0.92, metalness: 0.08, flatShading: true
+    });
+
+    // stacked plateau
+    const px = 15 * t, pz = -13 * t;
+    let py = height(px, pz) - 0.4 * t;
+    for (const p of [[10, 1, 10], [7.4, 1, 7.4], [5, 1.05, 5], [3, 1.1, 3]]) {
+      const hy = p[1] * t;
+      this._box(px, py + hy, pz, p[0] * 0.5 * t, hy, p[2] * 0.5 * t);
+      py += hy * 2;
+    }
+
+    // staircase
+    const sx = -17 * t, sz = 0;
+    for (let i = 0; i < 6; i++) {
+      const bx = sx + (9 - i * 0.2) * t;
+      const bz = sz + (-5 + i * 2) * t;
+      const by = height(bx, bz) + (0.9 + i * 1.15) * t;
+      this._box(bx, by, bz, 1.7 * t, 0.9 * t, 1.3 * t);
+    }
+
+    // high ledge above the staircase
+    this._box(sx, height(sx, sz) + 7.2 * t, sz, 7 * t, 0.6 * t, 6 * t, null, 0x1A2C3C, 0x12506A);
+
+    // tilted platform
+    {
+      const bx = 26 * t, bz = 8 * t;
+      const by = height(bx, bz);
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.42);
+      this._box(bx, by + 2.1 * t, bz, 5.5 * t, 0.45 * t, 3 * t, q, 0x1D2C3A);
+    }
+
+    // pillars
+    for (const p of [[-20, -6, 2.4, 5.2], [-38, -30, 2.6, 5.5], [40, -8, 2.4, 5], [3, 44, 2.6, 6], [44, 36, 2.8, 5.5]]) {
+      this._pillar(p[0] * t, p[1] * t, p[2] * t, p[3] * t);
+    }
+
+    // scattered boulder ring
+    const cx = -6 * t, cz = 28 * t;
+    const placed = [];
+    let guard = 0;
+    while (placed.length < 14 && guard < 500) {
+      guard++;
+      const a = rand() * Math.PI * 2;
+      const r = rand() * 12 * t;
+      const bx = cx + Math.cos(a) * r;
+      const bz = cz + Math.sin(a) * r;
+      const br = (1.4 + rand() * 1.7) * t;
+      let ok = true;
+      for (const p of placed) {
+        if (Math.hypot(p[0] - bx, p[1] - bz) < p[2] + br + 1.6 * t) { ok = false; break; }
+      }
+      if (ok) {
+        placed.push([bx, bz, br]);
+        this._boulder(bx, bz, br);
+      }
+    }
+
+    // fixed boulders
+    for (const p of [[30, -30, 2.4], [-44, 12, 2.2], [12, -34, 2], [-26, -22, 2.4], [34, 20, 2.1], [-40, 40, 2.6], [22, -18, 1.8]]) {
+      if (Math.hypot(p[0], p[1]) > 10) this._boulder(p[0] * t, p[1] * t, p[2] * t);
+    }
+  }
+
+  _dust() {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 31);
+    g.addColorStop(0, 'rgba(180,220,235,.8)');
+    g.addColorStop(1, 'rgba(180,220,235,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+    const tex = new THREE.CanvasTexture(canvas);
+
+    this.dust = [];
+    for (let i = 0; i < 26; i++) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending
+      }));
+      sprite.visible = false;
+      this.scene.add(sprite);
+      this.dust.push({ s: sprite, life: 1, max: 0.45, scl: 1 });
+    }
+    this._dustI = 0;
+  }
+
+  puff(p) {
+    const d = this.dust[this._dustI = (this._dustI + 1) % this.dust.length];
+    d.s.position.copy(p);
+    d.life = 0;
+    d.max = 0.4 + rand() * 0.2;
+    d.scl = 0.7 + rand() * 0.6;
+    d.s.visible = true;
+    d.s.material.opacity = 0.5;
+  }
+
+  updateDust(dt) {
+    for (const d of this.dust) {
+      if (!d.s.visible) continue;
+      d.life += dt;
+      const k = d.life / d.max;
+      if (k >= 1) { d.s.visible = false; continue; }
+      d.s.scale.setScalar(lerp(0.4, 2.2, k) * d.scl);
+      d.s.material.opacity = 0.5 * (1 - k);
+    }
+  }
+
+  resetDust() {
+    for (const d of this.dust) { d.s.visible = false; d.life = 1; d.s.material.opacity = 0; }
+    this._dustI = 0;
+  }
+}
+
+/* =========================================================================
+   ROPE / ANTENNA (verlet chain)
+   ========================================================================= */
+class Rope {
+  constructor(parent, anchor, localOff, count, seg, stiff, grav, color, radius) {
+    this.anchor = anchor;
+    this.localOff = localOff.clone();
+    this.n = count;
+    this.seg = seg;
+    this.stiff = stiff.clone();
+    this.grav = grav;
+    this.rad = radius;
+
+    this.pts = [];
+    this.prev = [];
+    const start = anchor.localToWorld(localOff.clone());
+    for (let i = 0; i < count; i++) {
+      const p = start.clone().addScaledVector(stiff, seg * i);
+      this.pts.push(p);
+      this.prev.push(p.clone());
+    }
+
+    this.seg_m = [];
+    const mat = bodyMaterial(color, color);
+    for (let i = 0; i < count - 1; i++) {
+      const m = new THREE.Mesh(GEO.cyl, mat);
+      m.castShadow = true;
+      parent.add(m);
+      this.seg_m.push(m);
+    }
+  }
+
+  step(dt) {
+    this.anchor.updateMatrixWorld();
+    const head = this.anchor.localToWorld(this.localOff.clone());
+    this.pts[0].copy(head);
+    this.prev[0].copy(head);
+
+    const dir = this.stiff.clone().applyQuaternion(this.anchor.quaternion).normalize();
+    const g = this.grav * dt * dt;
+
+    for (let i = 1; i < this.n; i++) {
+      const p = this.pts[i];
+      const o = this.prev[i];
+      const vx = (p.x - o.x) * 0.9;
+      const vy = (p.y - o.y) * 0.9;
+      const vz = (p.z - o.z) * 0.9;
+      o.copy(p);
+      p.x += vx;
+      p.y += vy - g;
+      p.z += vz;
+      const parent = this.pts[i - 1];
+      p.x += (parent.x + dir.x * this.seg - p.x) * 0.2;
+      p.y += (parent.y + dir.y * this.seg - p.y) * 0.2;
+      p.z += (parent.z + dir.z * this.seg - p.z) * 0.2;
+    }
+
+    for (let k = 0; k < 3; k++) {
+      for (let i = 1; i < this.n; i++) {
+        const a = this.pts[i - 1];
+        const b = this.pts[i];
+        _v1.subVectors(b, a);
+        const len = _v1.length() || 0.001;
+        _v1.multiplyScalar((len - this.seg) / len * 0.5);
+        if (i > 1) a.add(_v1);
+        b.sub(_v1);
+      }
+    }
+
+    for (let i = 0; i < this.n - 1; i++) {
+      setSegment(this.seg_m[i], this.pts[i], this.pts[i + 1], this.rad);
+    }
+  }
+}
+
+/* =========================================================================
+   SPIDER
+   ========================================================================= */
+const _abUp = new THREE.Vector3();
+const _abLocal = new THREE.Quaternion();
+const _abTarget = new THREE.Vector3();
+const _abDroop = new THREE.Quaternion();
+const _abTmp = new THREE.Quaternion();
+const _abIdentity = new THREE.Quaternion();
+const _X_AXIS = new THREE.Vector3(1, 0, 0);
+const _Y_AXIS = new THREE.Vector3(0, 1, 0);
+
+class Spider {
+  constructor(scene, world) {
+    this.scene = scene;
+    this.world = world;
+
+    this.baseSpeed = 6;
+    this.sprintMul = 1.85;
+    this.turnRate = 1.9;
+    this.femur = 2.05;
+    this.tibia = 2.05;
+    this.legReach = 4.1;
+    this.tarsus = 0.42;
+    this.legRad = 0.155;
+    this.rideClear = 3;
+    this.minClear = 1.6;
+    this.baseFreq = 1.55;
+    this.duty = 0.7;
+    this.stepH = 0.65;
+    this.stepThresh = 0.85;
+    this.maxStride = 2.7;
+    this.bodyR = 1.6;
+    this.minFoot = 1.1;
+
+    this.up = UP.clone();
+    this.fwd = new THREE.Vector3(0, 0, 1);
+    this.right = new THREE.Vector3(1, 0, 0);
+    this.heading = 0;
+    this.moveDir = new THREE.Vector3(0, 0, 1);
+    this.curSpeed = 0;
+    this.activity = 0;
+    this.gaitPhase = 0;
+    this.airborne = false;
+    this.vel = new THREE.Vector3();
+    this.tether = null;
+
+    this.fill = 0.5;
+    this.legsLost = 0;
+    this.bodyConform = true;
+    this.conformLift = false;
+    this.conformTiltW = 0.5;
+    this.bodyFlex = true;
+    this.abHang = 0.55;
+    this.abDroop = 0.14;
+    this.abMax = 0.8;
+
+    this.time = 0;
+    this.pos = new THREE.Vector3(0, height(0, 0), 0);
+    this.bodyOrigin = new THREE.Vector3(0, height(0, 0) + this.rideClear, 0);
+    this.quat = new THREE.Quaternion();
+
+    this.root = new THREE.Group();
+    scene.add(this.root);
+
+    this.buildBody();
+    this.buildLegs();
+
+    this.antennae = [
+      new Rope(scene, this.root, new THREE.Vector3(-0.3, 0.34, 1.25), 5, 0.34, new THREE.Vector3(-0.25, 0.5, 0.9), 5, 0x22D3EE, 0.045),
+      new Rope(scene, this.root, new THREE.Vector3(0.3, 0.34, 1.25), 5, 0.34, new THREE.Vector3(0.25, 0.5, 0.9), 5, 0x22D3EE, 0.045)
+    ];
+
+    this.reset();
+  }
+
+  partOn(parent, geo, mat, x, y, z, sx, sy, sz) {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    if (sx !== undefined) mesh.scale.set(sx, sy, sz);
+    mesh.castShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  part(geo, mat, x, y, z, sx, sy, sz) {
+    return this.partOn(this.root, geo, mat, x, y, z, sx, sy, sz);
+  }
+
+  buildBody() {
+    const shell = bodyMaterial(0x1F4250);
+    const abdomenMat = bodyMaterial(0x142A33);
+    const glow = bodyMaterial(0x22D3EE, 0x22D3EE);
+
+    this.PEDICEL = new THREE.Vector3(0, 0.02, -0.85);
+    this.abdomen = new THREE.Group();
+    this.abdomen.position.copy(this.PEDICEL);
+    this.root.add(this.abdomen);
+    this._abQ = new THREE.Quaternion();
+
+    this.part(GEO.joint, shell, 0, 0, 0.15, 1.05, 0.72, 1.25);
+    this.part(GEO.joint, shell, 0, 0.05, -0.7, 0.55, 0.5, 0.7);
+    this.part(GEO.joint, bodyMaterial(0x265562), 0, 0.18, 1, 0.62, 0.5, 0.55);
+
+    const eyes = bodyMaterial(0xFF3BD4, 0xFF3BD4);
+    for (const e of [[-0.26, 0.32, 1.32, 0.12], [0.26, 0.32, 1.32, 0.12],
+                     [-0.13, 0.42, 1.36, 0.09], [0.13, 0.42, 1.36, 0.09],
+                     [-0.32, 0.2, 1.28, 0.08], [0.32, 0.2, 1.28, 0.08]]) {
+      this.part(GEO.joint, eyes, e[0], e[1], e[2], e[3], e[3], e[3]);
+    }
+
+    const fangMat = bodyMaterial(0x0F1C24);
+    const fangL = this.part(new THREE.ConeGeometry(0.12, 0.6, 6), fangMat, -0.16, -0.05, 1.5);
+    fangL.rotation.x = 2.5;
+    const fangR = this.part(new THREE.ConeGeometry(0.12, 0.6, 6), fangMat, 0.16, -0.05, 1.5);
+    fangR.rotation.x = 2.5;
+
+    const py = this.PEDICEL.y;
+    const pz = this.PEDICEL.z;
+    this.body = this.partOn(this.abdomen, GEO.joint, abdomenMat, 0, -0.02 - py, -1.65 - pz, 1.18, 0.82, 1.5);
+    this.partOn(this.abdomen, GEO.joint, glow, 0, 0.2 - py, -1.55 - pz, 0.34, 0.7, 1.42);
+  }
+
+  buildLegs() {
+    const femurMat = bodyMaterial(0x2AA7C4);
+    const tibiaMat = bodyMaterial(0x1D7F96);
+    const tarsusMat = bodyMaterial(0x12606F);
+    const jointMat = bodyMaterial(0x0F1C24);
+
+    const config = [
+      { az: 0.5, off: 0.5 },
+      { az: 1.12, off: 0.33 },
+      { az: 1.78, off: 0.17 },
+      { az: 2.42, off: 0 },
+      { az: -2.42, off: 0.5 },
+      { az: -1.78, off: 0.67 },
+      { az: -1.12, off: 0.83 },
+      { az: -0.5, off: 0 }
+    ];
+
+    const hipR = 1.15;
+    const homeR = 3.35;
+    this.legs = [];
+
+    for (const c of config) {
+      const s = Math.sin(c.az);
+      const co = Math.cos(c.az);
+      const home = new THREE.Vector3(s * homeR, 0, co * homeR);
+      const hip = new THREE.Vector3(s * hipR, 0, co * hipR);
+
+      const leg = {
+        hip,
+        home,
+        off: c.off,
+        pole: new THREE.Vector3(s * 0.85, 1.45, co * 0.85).normalize(),
+        restAz: Math.atan2(home.x, home.z),
+        restR: homeR,
+        rMin: homeR * 0.78,
+        rMax: homeR * 1.2,
+        ccw: 0.3,
+        cw: 0.3,
+        femurM: new THREE.Mesh(GEO.cyl, femurMat),
+        tibiaM: new THREE.Mesh(GEO.cyl, tibiaMat),
+        tarsusM: new THREE.Mesh(GEO.cyl, tarsusMat),
+        kneeM: new THREE.Mesh(GEO.joint, jointMat),
+        hipM: new THREE.Mesh(GEO.joint, jointMat),
+        plant: new THREE.Vector3(),
+        from: new THREE.Vector3(),
+        to: new THREE.Vector3(),
+        surfN: UP.clone(),
+        toN: UP.clone(),
+        t: 1,
+        stepping: false
+      };
+      leg.restAxisL = home.clone().sub(hip).normalize();
+
+      leg.femurM.castShadow = true;
+      leg.tibiaM.castShadow = true;
+      leg.tarsusM.castShadow = true;
+      leg.kneeM.castShadow = true;
+      leg.hipM.castShadow = true;
+      leg.kneeM.scale.setScalar(0.2);
+      leg.hipM.scale.setScalar(0.26);
+
+      this.scene.add(leg.femurM, leg.tibiaM, leg.tarsusM, leg.kneeM, leg.hipM);
+      this.legs.push(leg);
+    }
+
+    // angular limits between neighbouring legs
+    const gap = 0.06;
+    for (let i = 0; i < 8; i++) {
+      const leg = this.legs[i];
+      const next = this.legs[(i + 1) % 8];
+      const prev = this.legs[(i + 7) % 8];
+      leg.ccw = Math.max(0.12, Math.abs(wrapAngle(next.restAz - leg.restAz)) * 0.5 - gap);
+      leg.cw = Math.max(0.12, Math.abs(wrapAngle(prev.restAz - leg.restAz)) * 0.5 - gap);
+    }
+  }
+
+  rebuild() {
+    let right = this.up.clone().cross(this.fwd);
+    if (right.lengthSq() < 1e-6) right = this.up.clone().cross(new THREE.Vector3(1, 0, 0.001));
+    right.normalize();
+    this.fwd.copy(right.clone().cross(this.up).normalize());
+    this.right.copy(right);
+    this.quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(this.right, this.up, this.fwd));
+  }
+
+  setRoot() {
+    this.root.position.copy(this.bodyOrigin);
+    this.root.quaternion.copy(this.quat);
+
+    const breathe = 1 + Math.sin(this.time * 3.2) * 0.013;
+    const fat = 1 + smoothstep(this.fill || 0) * 0.55;
+    this.body.scale.set(1.18 * (0.85 + 0.15 * fat), 0.82 * breathe * fat, 1.5 * fat);
+    this.root.updateMatrixWorld(true);
+  }
+
+  _castFoothold(from) {
+    const dir = this.up.clone().negate();
+    const maxUpDist = this.legReach + 0.5;
+    let origin = from.clone().addScaledVector(this.up, 4);
+
+    for (let i = 0; i < 6; i++) {
+      const hit = raycastWorld(origin, dir, this.rideClear + 12);
+      if (!hit) break;
+
+      const goodNormal = hit.n.dot(this.up) > 0.1;
+      const nearEnough = hit.point.clone().sub(this.pos).dot(this.up) < maxUpDist;
+      let insideSolid = false;
+      for (const c of colliders) {
+        if (penetration(hit.point, c).d < -0.15) { insideSolid = true; break; }
+      }
+      if (goodNormal && nearEnough && !insideSolid) return hit;
+
+      origin.copy(hit.point).addScaledVector(dir, 0.15);
+    }
+    return null;
+  }
+
+  footProbe(target) {
+    let hit = this._castFoothold(target);
+    if (hit) return hit;
+
+    // pull the probe back toward the body and try again
+    const toBody = this.pos.clone().sub(target);
+    toBody.addScaledVector(this.up, -toBody.dot(this.up));
+    for (let i = 1; i <= 6; i++) {
+      hit = this._castFoothold(target.clone().addScaledVector(toBody, i / 6 * 0.85));
+      if (hit) return hit;
+    }
+
+    const y = height(target.x, target.z);
+    return { point: new THREE.Vector3(target.x, y, target.z), n: terrainNormal(target.x, target.z) };
+  }
+
+  reset() {
+    if (this._abQ) {
+      this._abQ.identity();
+      this.abdomen.quaternion.identity();
+    }
+    this.up.copy(UP);
+    this.fwd.set(0, 0, 1);
+    this.right.set(1, 0, 0);
+    this.heading = 0;
+    this.moveDir.set(0, 0, 1);
+    this.curSpeed = 0;
+    this.activity = 0;
+    this.gaitPhase = 0;
+    this.airborne = false;
+    this.vel.set(0, 0, 0);
+    this.tether = null;
+    this.pos.set(0, height(0, 0), 0);
+    this.bodyOrigin.copy(this.pos).addScaledVector(this.up, this.rideClear);
+    this.time = 0;
+
+    this.rebuild();
+    this.setRoot();
+
+    for (const leg of this.legs) {
+      const target = this.root.localToWorld(leg.home.clone());
+      const probe = this.footProbe(target);
+      leg.plant.copy(probe.point);
+      leg.surfN.copy(probe.n);
+      leg.toN.copy(probe.n);
+      leg.from.copy(probe.point);
+      leg.to.copy(probe.point);
+      leg.t = 1;
+      leg.stepping = false;
+    }
+    for (const a of this.antennae || []) {
+      const head = a.anchor.localToWorld(a.localOff.clone());
+      for (let i = 0; i < a.n; i++) {
+        a.pts[i].copy(head);
+        a.prev[i].copy(head);
+      }
+    }
+  }
+
+  teleport(x, z, fwd) {
+    this.up.copy(UP);
+    if (fwd) {
+      this.fwd.copy(fwd);
+      this.fwd.y = 0;
+      if (this.fwd.lengthSq() < 1e-6) this.fwd.set(0, 0, 1);
+      this.fwd.normalize();
+    } else {
+      this.fwd.set(0, 0, 1);
+    }
+    this.right.set(1, 0, 0);
+    this.curSpeed = 0;
+    this.activity = 0;
+    this.gaitPhase = 0;
+    this.moveDir.copy(this.fwd);
+
+    const y = height(x, z);
+    this.pos.set(x, y, z);
+    const drop = raycastWorld(new THREE.Vector3(x, y + 80, z), DOWN, 120);
+    if (drop) this.pos.copy(drop.point);
+
+    this.bodyOrigin.copy(this.pos).addScaledVector(this.up, this.rideClear);
+    this.rebuild();
+    this.setRoot();
+
+    for (const leg of this.legs) {
+      const target = this.root.localToWorld(leg.home.clone());
+      const probe = this.footProbe(target);
+      leg.plant.copy(probe.point);
+      leg.surfN.copy(probe.n);
+      leg.toN.copy(probe.n);
+      leg.from.copy(probe.point);
+      leg.to.copy(probe.point);
+      leg.t = 1;
+      leg.stepping = false;
+    }
+  }
+
+  spinneret(out) {
+    out = out || new THREE.Vector3();
+    return this.abdomen.localToWorld(out.set(0, -0.1 - this.PEDICEL.y, -2.55 - this.PEDICEL.z));
+  }
+
+  headPoint(out) {
+    out = out || new THREE.Vector3();
+    return this.root.localToWorld(out.set(0, 0.2, 1.4));
+  }
+
+  _updateAbdomen(dt) {
+    if (!this.abdomen) return;
+    if (!this.bodyFlex) {
+      this._abQ.identity();
+      this.abdomen.quaternion.identity();
+      return;
+    }
+
+    _abUp.copy(this.up).lerp(UP, this.abHang);
+    if (_abUp.lengthSq() < 1e-6) _abUp.copy(UP);
+    _abUp.normalize();
+
+    _abLocal.copy(this.quat).invert();
+    _abTarget.copy(_abUp).applyQuaternion(_abLocal);
+
+    _abTmp.setFromUnitVectors(_Y_AXIS, _abTarget);
+    _abDroop.setFromAxisAngle(_X_AXIS, -this.abDroop);
+    _abTmp.multiply(_abDroop);
+
+    const angle = 2 * Math.acos(clamp(Math.abs(_abTmp.w), 0, 1));
+    if (angle > this.abMax) {
+      _abIdentity.identity();
+      _abIdentity.slerp(_abTmp, this.abMax / angle);
+      _abTmp.copy(_abIdentity);
+    }
+
+    this._abQ.slerp(_abTmp, 1 - Math.pow(0.02, Math.min(dt, 0.05)));
+    this.abdomen.quaternion.copy(this._abQ);
+  }
+
+  /* --------------------------- locomotion states --------------------------- */
+
+  pounce(dir, scale) {
+    if (this.airborne) return;
+    scale = scale === undefined ? 1 : scale;
+    this.pos.copy(this.bodyOrigin);
+    const n = dir ? dir.clone().normalize() : this.fwd.clone();
+    this.vel.copy(n).multiplyScalar(11 * scale).addScaledVector(this.up, 7 * scale);
+    this.airborne = true;
+    this.tether = null;
+  }
+
+  jump(lunge) {
+    if (this.airborne) return;
+    this.pos.copy(this.bodyOrigin);
+
+    const moving = this.moveDir.lengthSq() > 0.04;
+    const n = (moving ? this.moveDir : this.fwd).clone();
+    n.addScaledVector(this.up, -n.dot(this.up));
+    if (n.lengthSq() < 1e-5) n.copy(this.fwd);
+    n.normalize();
+
+    const upSpeed = lunge ? 8 : 10;
+    const fwdSpeed = (lunge ? 17 : (moving ? 3 : 0)) + this.curSpeed * (lunge ? 1 : 0.7);
+    this.vel.copy(this.up).multiplyScalar(upSpeed).addScaledVector(n, fwdSpeed);
+    this.airborne = true;
+    this.tether = null;
+  }
+
+  attachTether(anchor) {
+    if (!this.airborne) this.pos.copy(this.bodyOrigin);
+    this.airborne = true;
+    this.tether = {
+      anchor: anchor.clone(),
+      points: [anchor.clone()],
+      len: Math.max(1.5, this.pos.distanceTo(anchor)),
+      reel: 0
+    };
+  }
+
+  releaseTether() {
+    if (!this.tether) return;
+    this.tether = null;
+    const speed = this.vel.length();
+    if (speed > 4) this.vel.addScaledVector(UP, Math.min(speed * 0.55, 9));
+  }
+
+  reel(rate) {
+    if (this.tether) this.tether.reel = rate;
+  }
+
+  land(point, normal) {
+    this.airborne = false;
+    this.tether = null;
+    this.vel.set(0, 0, 0);
+    if (normal) this.up.copy(normal).normalize();
+    this.pos.copy(point);
+    this.bodyOrigin.copy(this.pos).addScaledVector(this.up, this.rideClear);
+    this.rebuild();
+    this.setRoot();
+
+    for (const leg of this.legs) {
+      if (leg.lost) continue;
+      const target = this.root.localToWorld(leg.home.clone());
+      const probe = this.footProbe(target);
+      leg.plant.copy(probe.point);
+      leg.surfN.copy(probe.n);
+      leg.toN.copy(probe.n);
+      leg.from.copy(probe.point);
+      leg.to.copy(probe.point);
+      leg.t = 1;
+      leg.stepping = false;
+    }
+  }
+
+  severLeg(i) {
+    const leg = this.legs[i];
+    if (!leg || leg.lost) return false;
+    leg.lost = true;
+    this.legsLost++;
+    for (const m of [leg.femurM, leg.tibiaM, leg.tarsusM, leg.kneeM, leg.hipM]) m.visible = false;
+    return true;
+  }
+
+  regrowLeg(i) {
+    const leg = this.legs[i];
+    if (!leg || !leg.lost) return false;
+    leg.lost = false;
+    this.legsLost--;
+    for (const m of [leg.femurM, leg.tibiaM, leg.tarsusM, leg.kneeM, leg.hipM]) m.visible = true;
+    return true;
+  }
+
+  updateAirborne(dt, input) {
+    if (dt <= 0) {
+      this.bodyOrigin.copy(this.pos);
+      this.rebuild();
+      this.setRoot();
+      return;
+    }
+
+    const gravity = 26;
+    this.vel.y -= gravity * dt;
+
+    if (input && (input.ix || input.iy)) {
+      const camFwd = new THREE.Vector3(-Math.sin(input.camYaw || 0), 0, -Math.cos(input.camYaw || 0));
+      const camRight = new THREE.Vector3(-camFwd.z, 0, camFwd.x);
+      this.vel.addScaledVector(
+        camFwd.multiplyScalar(input.iy).addScaledVector(camRight, input.ix),
+        16 * dt
+      );
+    }
+    this.vel.multiplyScalar(1 - 0.09 * dt);
+
+    const prevPos = this.pos.clone();
+    this.pos.addScaledVector(this.vel, dt);
+
+    if (this.tether) {
+      const t = this.tether;
+      if (!t.points) t.points = [t.anchor];
+      if (t.reel) t.len = clamp(t.len - t.reel * dt, 1.5, 60);
+
+      if (t.points.length > 1) {
+        const prev = t.points[t.points.length - 2];
+        const d = this.pos.clone().sub(prev);
+        const dist = d.length();
+        if (dist > 0.6) {
+          const dir = d.multiplyScalar(1 / dist);
+          if (!raycastWorld(prev.clone().addScaledVector(dir, 0.3), dir, dist - 0.5)) t.points.pop();
+        }
+      }
+
+      let used = 0;
+      for (let i = 0; i < t.points.length - 1; i++) used += t.points[i].distanceTo(t.points[i + 1]);
+
+      const last = t.points[t.points.length - 1];
+      const maxLen = Math.max(1, t.len - used);
+      const toLast = this.pos.clone().sub(last);
+      const d2 = toLast.length() || 1e-6;
+      if (d2 > maxLen) {
+        this.pos.copy(last).addScaledVector(toLast.multiplyScalar(1 / d2), maxLen);
+        this.vel.copy(this.pos).sub(prevPos).multiplyScalar(1 / dt);
+      }
+
+      const v = this.pos.clone().sub(last);
+      const d3 = v.length();
+      if (d3 > 0.8 && t.points.length < 6) {
+        const dir = v.multiplyScalar(1 / d3);
+        const hit = raycastWorld(last.clone().addScaledVector(dir, 0.3), dir, d3 - 0.5);
+        if (hit && hit.point.distanceTo(last) > 0.8) {
+          t.points.push(hit.point.clone().addScaledVector(hit.n, 0.3));
+        }
+      }
+    }
+
+    if (!this.tether) {
+      let hitNormal = null, hitPoint = null, bestD = this.rideClear;
+      for (const c of colliders) {
+        const p = penetration(this.pos, c);
+        if (p.d >= bestD) continue;
+        if (-this.vel.dot(p.n) > 1.5 || p.d < this.minClear) {
+          hitNormal = p.n.clone();
+          hitPoint = this.pos.clone().addScaledVector(p.n, -p.d);
+          bestD = p.d;
+        }
+      }
+      if (hitNormal) { this.land(hitPoint, hitNormal); return; }
+    }
+
+    for (const c of colliders) {
+      const p = penetration(this.pos, c);
+      if (p.d < 0.7) {
+        this.pos.addScaledVector(p.n, 0.7 - p.d);
+        const vn = this.vel.dot(p.n);
+        if (vn < 0) this.vel.addScaledVector(p.n, -vn);
+      }
+    }
+
+    this.up.lerp(UP, 1 - Math.pow(0.015, dt));
+    this.up.normalize();
+
+    const horiz = new THREE.Vector3(this.vel.x, 0, this.vel.z);
+    if (horiz.lengthSq() > 0.6) {
+      this.fwd.lerp(horiz.normalize(), 1 - Math.pow(0.12, dt));
+      this.fwd.y = 0;
+      this.fwd.normalize();
+    }
+
+    const ahead = raycastWorld(this.pos.clone().add(new THREE.Vector3(0, 0.5, 0)), DOWN, this.rideClear + 2.5);
+    const ground = height(this.pos.x, this.pos.z);
+
+    if (this.tether && this.vel.lengthSq() > 9) {
+      if (this.pos.y - this.rideClear < ground + 0.1) this.pos.y = ground + this.rideClear + 0.1;
+    } else {
+      if (this.vel.y < 0 && ahead && this.pos.y - ahead.point.y < this.rideClear * 0.7) {
+        this.land(ahead.point, ahead.n);
+        return;
+      }
+      if (this.pos.y - this.rideClear < ground + 0.1) {
+        this.land(new THREE.Vector3(this.pos.x, ground, this.pos.z), terrainNormal(this.pos.x, this.pos.z));
+        return;
+      }
+    }
+
+    this.pos.x = clamp(this.pos.x, -WORLD / 2 + 3, WORLD / 2 - 3);
+    this.pos.z = clamp(this.pos.z, -WORLD / 2 + 3, WORLD / 2 - 3);
+    this.heading = Math.atan2(this.fwd.x, this.fwd.z);
+
+    this.rebuild();
+    this.bodyOrigin.copy(this.pos);
+    this._updateAbdomen(dt > 0 ? dt : 1e-4);
+    this.setRoot();
+    this.poseAirborneLegs();
+
+    for (const a of this.antennae) a.step(dt);
+  }
+
+  poseAirborneLegs() {
+    const down = this.up.clone().negate();
+    for (const leg of this.legs) {
+      if (leg.lost) continue;
+
+      const hipW = this.root.localToWorld(leg.hip.clone());
+      const out = hipW.clone().sub(this.bodyOrigin);
+      out.addScaledVector(this.up, -out.dot(this.up));
+      if (out.lengthSq() < 1e-4) out.copy(this.fwd);
+      out.normalize();
+
+      const knee = hipW.clone()
+        .addScaledVector(out, this.femur * 0.55)
+        .addScaledVector(down, this.femur * 0.5);
+      const ankle = knee.clone()
+        .addScaledVector(down, this.tibia * 0.7)
+        .addScaledVector(out, -this.tibia * 0.2);
+      const foot = ankle.clone().addScaledVector(down, this.tarsus);
+
+      leg.plant.copy(foot);
+      leg._hipW = hipW;
+      leg._knee = knee;
+      leg._ankle = ankle;
+      leg._foot = foot;
+
+      setSegment(leg.femurM, hipW, knee, this.legRad);
+      setSegment(leg.tibiaM, knee, ankle, this.legRad * 0.8);
+      setSegment(leg.tarsusM, ankle, foot, this.legRad * 0.62);
+      leg.kneeM.position.copy(knee);
+      leg.hipM.position.copy(hipW);
+    }
+  }
+
+  /* ------------------------------ main update ------------------------------ */
+
+  update(dt, input) {
+    this.time += dt;
+
+    if (this.airborne) {
+      this.updateAirborne(dt, input);
+      return;
+    }
+
+    if (dt > 0) {
+      this.rebuild();
+
+      const mag = Math.min(1, Math.hypot(input.ix, input.iy));
+
+      if (mag > 0.08) {
+        const camFwd = new THREE.Vector3(-Math.sin(input.camYaw), 0, -Math.cos(input.camYaw));
+        const camRight = new THREE.Vector3(-camFwd.z, 0, camFwd.x);
+        const wish = camFwd.multiplyScalar(input.iy).addScaledVector(camRight, input.ix);
+
+        const planar = wish.clone().addScaledVector(this.up, -wish.dot(this.up));
+        const steepness = 1 - Math.abs(this.up.y);
+        if (steepness > 0.25) {
+          const alongUp = -wish.dot(this.up);
+          const axis = new THREE.Vector3(0, 1, 0).addScaledVector(this.up, -this.up.y);
+          if (axis.lengthSq() > 1e-4) planar.addScaledVector(axis.normalize(), alongUp * steepness);
+        }
+
+        if (planar.lengthSq() > 1e-5) {
+          planar.normalize();
+          this.moveDir.copy(planar);
+          this.curSpeed = this.baseSpeed * mag * (input.sprint ? this.sprintMul : 1);
+          this.pos.addScaledVector(planar, this.curSpeed * dt);
+
+          const cross = new THREE.Vector3().crossVectors(this.fwd, planar);
+          const turn = clamp(Math.atan2(cross.dot(this.up), this.fwd.dot(planar)), -this.turnRate * dt, this.turnRate * dt);
+          this.fwd.applyAxisAngle(this.up, turn);
+          this.rebuild();
+        }
+      } else {
+        this.curSpeed = lerp(this.curSpeed, 0, 1 - Math.pow(8e-4, dt));
+        this.moveDir.multiplyScalar(0.86);
+      }
+
+      this.activity = this.curSpeed / this.baseSpeed;
+
+      /* average planted-foot position + best-fit plane normal */
+      let avgPlant = null;
+      let planeN;
+      {
+        let px = 0, py = 0, pz = 0, wsum = 0;
+        let nx = 0, ny = 0, nz = 0;
+        for (let i = 0; i < 8; i++) {
+          const leg = this.legs[i];
+          if (leg.lost) continue;
+          const a = leg.plant;
+          const b = this.legs[(i + 1) % 8].plant;
+          nx += (a.y - b.y) * (a.z + b.z);
+          ny += (a.z - b.z) * (a.x + b.x);
+          nz += (a.x - b.x) * (a.y + b.y);
+
+          if (!leg.stepping) {
+            const homeW = this.root.localToWorld(leg.home.clone());
+            const w = smoothstep(1 - a.distanceTo(homeW) / (this.maxStride * 1.4));
+            px += a.x * w; py += a.y * w; pz += a.z * w; wsum += w;
+          }
+        }
+        if (wsum > 0.001) avgPlant = new THREE.Vector3(px / wsum, py / wsum, pz / wsum);
+        planeN = new THREE.Vector3(nx, ny, nz);
+        if (planeN.dot(this.up) < 0) planeN.negate();
+        if (planeN.lengthSq() < 1e-6) planeN.copy(this.up);
+        planeN.normalize();
+      }
+
+      /* ground / surface probing */
+      let ground = raycastWorld(this.pos.clone().addScaledVector(this.up, 1.6), this.up.clone().negate(), this.rideClear + 7);
+      if (!ground) ground = raycastWorld(this.pos.clone().add(new THREE.Vector3(0, 3.5, 0)), DOWN, 22);
+
+      if (ground && this.curSpeed > 0.5) {
+        const probe = this.pos.clone().addScaledVector(this.moveDir, 1.2).addScaledVector(this.up, this.rideClear);
+        const ahead = raycastWorld(probe, this.up.clone().negate(), this.rideClear + 9);
+        if (ahead) {
+          const lift = ahead.point.clone().sub(ground.point).dot(this.up);
+          if (lift > 0) ground.point.addScaledVector(this.up, Math.min(lift, this.rideClear));
+        }
+      }
+
+      /* wall detection */
+      let wallN = null;
+      if (this.curSpeed > 0.4) {
+        const hit = raycastWorld(this.pos.clone().addScaledVector(this.up, 0.5), this.moveDir, this.bodyR + 1.4);
+        if (hit && hit.n.dot(this.moveDir) < -0.2) wallN = hit.n.clone();
+      }
+
+      /* body height target */
+      let target = ground ? ground.point.clone() : null;
+      if (ground && this.bodyConform && this.conformLift && avgPlant) {
+        const above = avgPlant.clone().sub(ground.point).dot(this.up);
+        const maxAbove = Math.max(2.2, this.stepH * 3 + 0.8);
+        if (above > 0) target = ground.point.clone().addScaledVector(this.up, Math.min(above, maxAbove));
+      }
+
+      if (target) {
+        const delta = target.clone().sub(this.pos);
+        const dist = delta.length();
+        const step = (this.curSpeed * 1.7 + 9) * dt;
+        if (dist > step) this.pos.addScaledVector(delta.multiplyScalar(1 / dist), step);
+        else this.pos.copy(target);
+      } else {
+        this.pos.y -= 9 * dt;
+      }
+
+      const gh = height(this.pos.x, this.pos.z);
+      if (this.pos.y < gh - 0.3) this.pos.y = gh - 0.3;
+      this.pos.x = clamp(this.pos.x, -WORLD / 2 + 3, WORLD / 2 - 3);
+      this.pos.z = clamp(this.pos.z, -WORLD / 2 + 3, WORLD / 2 - 3);
+      this.pos.y = clamp(this.pos.y, -12, 46);
+
+      /* body collision resolution against colliders */
+      {
+        const radius = this.bodyR + this.legRad + 0.2;
+        const push = new THREE.Vector3();
+        let maxPen = 0;
+        const center = this.pos.clone().addScaledVector(this.up, this.rideClear);
+
+        for (const c of colliders) {
+          const cc = c.kind === 'sphere' ? c.c : c.p;
+          if (center.distanceTo(cc) > radius + c.br + 1) continue;
+          const p = penetration(center, c);
+          const align = p.n.dot(this.up);
+          if (p.d < radius && align > -0.3 && align < 0.7) {
+            const overlap = radius - p.d;
+            push.addScaledVector(p.n, overlap);
+            if (overlap > maxPen) maxPen = overlap;
+          }
+        }
+
+        if (maxPen > 1e-4) {
+          push.addScaledVector(this.up, -push.dot(this.up));
+          let amount = maxPen;
+          const along = push.dot(this.moveDir);
+          if (along < 0) { push.addScaledVector(this.moveDir, -along); amount -= along; }
+          push.addScaledVector(this.up, amount);
+          const len = Math.min(push.length(), 0.4);
+          if (push.lengthSq() > 1e-9) this.pos.addScaledVector(push.normalize(), len);
+          this.pos.y = clamp(this.pos.y, -12, 46);
+        }
+      }
+
+      /* body orientation */
+      let targetUp = ground ? ground.n.clone() : UP.clone();
+      if (wallN) targetUp.multiplyScalar(0.35).addScaledVector(wallN, 0.65).normalize();
+      const conformW = this.bodyConform ? this.conformTiltW : 0.2;
+      const mixed = targetUp.multiplyScalar(1 - conformW).addScaledVector(planeN, conformW).normalize();
+      this.up.lerp(mixed, wallN ? 1 - Math.pow(0.05, dt) : 1 - Math.pow(0.09, dt));
+      if (this.up.lengthSq() < 1e-6 || !isFinite(this.up.x)) this.up.copy(UP);
+      this.up.normalize();
+    }
+
+    this.rebuild();
+    this.bodyOrigin.copy(this.pos).addScaledVector(this.up, this.rideClear);
+    this.heading = Math.atan2(this.fwd.x, this.fwd.z);
+    this._updateAbdomen(dt > 0 ? dt : 1e-4);
+    this.setRoot();
+    this.updateLegs(dt > 0 ? dt : 1e-4);
+
+    if (dt > 0) for (const a of this.antennae) a.step(dt);
+  }
+
+  /* ------------------------------- leg IK -------------------------------- */
+
+  updateLegs(dt) {
+    const activity = Math.max(this.activity || 0, 1e-4);
+    const freq = this.baseFreq * activity;
+    if (activity > 0.12) this.gaitPhase = wrap01((this.gaitPhase || 0) + dt * freq);
+
+    const duty = this.duty;
+    const stride = clamp(this.curSpeed / Math.max(freq, 0.25) * 0.82, 0.35, this.maxStride);
+    const stepDuration = Math.max((1 - duty) / Math.max(freq, 0.3), 0.05);
+    const totalLen = this.femur + this.tibia;
+
+    let steppingCount = 0;
+    const candidates = [];
+
+    for (let i = 0; i < 8; i++) {
+      const leg = this.legs[i];
+      if (leg.lost) continue;
+      if (leg.stepping) { steppingCount++; continue; }
+
+      const homeW = this.root.localToWorld(leg.home.clone());
+      const probe = this.footProbe(homeW);
+      leg._home = probe.point;
+
+      const hipW = this.root.localToWorld(leg.hip.clone());
+      const ratio = hipW.distanceTo(leg.plant) / totalLen;
+
+      const local = this.root.worldToLocal(leg.plant.clone());
+      const azDiff = wrapAngle(Math.atan2(local.x, local.z) - leg.restAz);
+      const rad = Math.hypot(local.x, local.z);
+      const blocked = segmentBlocked(hipW, leg.plant);
+
+      const wants = azDiff > leg.ccw || azDiff < -leg.cw || rad > leg.rMax * 1.05 || rad < leg.rMin * 0.9 || ratio > 0.9 || blocked;
+      const dist = leg.plant.distanceTo(probe.point);
+      const phase = wrap01((this.gaitPhase || 0) + leg.off);
+      const swingDue = activity > 0.15 && phase > duty;
+
+      if (swingDue || dist > this.stepThresh || wants) {
+        candidates.push({
+          i,
+          rf: ratio,
+          bl: blocked,
+          u: (wants ? 2.4 : 0) + dist * 0.45 + (swingDue ? 1 : 0) + (ratio > 0.9 ? 3 : 0) + (blocked ? 2.5 : 0)
+        });
+      }
+    }
+
+    candidates.sort((a, b) => b.u - a.u);
+    const maxConcurrent = activity > 0.7 ? 4 : 3;
+
+    for (const cand of candidates) {
+      const urgent = cand.rf > 0.95 || cand.bl;
+      const limit = cand.bl ? 8 : (urgent ? maxConcurrent + 2 : maxConcurrent);
+      if (steppingCount >= limit) continue;
+
+      const idx = cand.i;
+      const leg = this.legs[idx];
+      if (!urgent && (this.legs[(idx + 1) % 8].stepping || this.legs[(idx + 7) % 8].stepping)) continue;
+
+      const desired = leg._home.clone().addScaledVector(this.moveDir, stride);
+      let localDesired = this.root.worldToLocal(desired.clone());
+
+      let az = leg.restAz + clamp(wrapAngle(Math.atan2(localDesired.x, localDesired.z) - leg.restAz), -leg.cw, leg.ccw);
+      let rad = clamp(Math.hypot(localDesired.x, localDesired.z), leg.rMin, leg.rMax);
+      let world = this.root.localToWorld(new THREE.Vector3(Math.sin(az) * rad, localDesired.y, Math.cos(az) * rad));
+
+      // keep feet from crossing
+      for (let j = 0; j < 8; j++) {
+        if (j === idx || this.legs[j].stepping) continue;
+        const q = this.legs[j].plant;
+        const dx = world.x - q.x, dy = world.y - q.y, dz = world.z - q.z;
+        const d = Math.hypot(dx, dy, dz);
+        if (d < this.minFoot && d > 0.001) {
+          world.x = q.x + dx / d * this.minFoot;
+          world.y = q.y + dy / d * this.minFoot;
+          world.z = q.z + dz / d * this.minFoot;
+        }
+      }
+
+      localDesired = this.root.worldToLocal(world.clone());
+      az = leg.restAz + clamp(wrapAngle(Math.atan2(localDesired.x, localDesired.z) - leg.restAz), -leg.cw, leg.ccw);
+      rad = clamp(Math.hypot(localDesired.x, localDesired.z), leg.rMin, leg.rMax);
+      world = this.root.localToWorld(new THREE.Vector3(Math.sin(az) * rad, localDesired.y, Math.cos(az) * rad));
+
+      const hipW = this.root.localToWorld(leg.hip.clone());
+      let probe = this.footProbe(world);
+      let foot = probe.point.clone();
+
+      const invalid = () => segmentBlocked(hipW, foot) || hipW.clone().sub(foot).dot(this.up) > this.rideClear + 1.3;
+      for (let n = 0; n < 8 && invalid(); n++) {
+        rad = Math.max(leg.rMin * 0.7, rad * 0.66);
+        const q = this.root.localToWorld(new THREE.Vector3(Math.sin(az) * rad, localDesired.y, Math.cos(az) * rad));
+        probe = this.footProbe(q);
+        foot = probe.point.clone();
+      }
+
+      const toFoot = foot.clone().sub(hipW);
+      const dist = toFoot.length();
+      const maxLen = totalLen * 0.86;
+      if (dist > maxLen) foot = hipW.clone().addScaledVector(toFoot.multiplyScalar(1 / dist), maxLen);
+
+      leg.stepping = true;
+      leg.t = 0;
+      leg.from.copy(leg.plant);
+      leg.to.copy(foot);
+      leg.toN.copy(probe.n);
+      steppingCount++;
+
+      // lift height accounts for obstacles between takeoff and landing
+      let pen = 0;
+      for (let n = 1; n < 6; n++) {
+        const p = leg.from.clone().lerp(leg.to, n / 6);
+        for (const c of colliders) {
+          const d = -penetration(p, c).d;
+          if (d > pen) pen = d;
+        }
+      }
+      let lift = Math.min(this.stepH + pen * 1.1, this.stepH + 1.3);
+      const mid = leg.from.clone().lerp(leg.to, 0.5).addScaledVector(this.up, 0.2);
+      const ceiling = raycastWorld(mid, this.up, lift + 0.6);
+      if (ceiling) lift = Math.min(lift, Math.max(0.2, ceiling.t - 0.3));
+      leg.lift = lift;
+    }
+
+    /* pose each leg */
+    const up = this.up;
+    for (let i = 0; i < 8; i++) {
+      const leg = this.legs[i];
+      if (leg.lost) continue;
+
+      if (leg.stepping) {
+        leg.t += dt / stepDuration;
+        const g = smoothstep(clamp(leg.t));
+        leg.plant.lerpVectors(leg.from, leg.to, smoothstep(g));
+        leg.plant.addScaledVector(up, (leg.lift || this.stepH) * Math.sin(Math.PI * Math.pow(g, 0.82)));
+        if (g >= 1) {
+          leg.stepping = false;
+          leg.plant.copy(leg.to);
+          leg.surfN.copy(leg.toN);
+          if (this.curSpeed > 1.2) this.world.puff(leg.plant);
+        }
+      }
+
+      const hipW = this.root.localToWorld(leg.hip.clone());
+
+      let surf = leg.surfN.clone().multiplyScalar(0.7).addScaledVector(up, 0.3).normalize();
+      if (surf.dot(up) < 0.15) surf.copy(up);
+
+      const pole = leg.pole.clone().applyQuaternion(this.root.quaternion);
+      const restAxis = leg.restAxisL.clone().applyQuaternion(this.root.quaternion);
+
+      /* nearby obstacles */
+      let near = null;
+      for (const c of colliders) {
+        const cc = c.kind === 'sphere' ? c.c : c.p;
+        if (hipW.distanceTo(cc) < this.legReach + c.br + 1.2) {
+          if (!near) near = [];
+          near.push(c);
+        }
+      }
+
+      /* ankle target */
+      let foot = leg.plant.clone();
+      if (near) {
+        for (const c of near) {
+          const p = penetration(foot, c);
+          const r = this.legRad * 0.6;
+          if (p.d < r) foot.addScaledVector(p.n, r - p.d);
+        }
+      }
+      {
+        const gh = height(foot.x, foot.z);
+        if (foot.y < gh) foot.y = gh;
+      }
+
+      let ankle = foot.clone().addScaledVector(surf, this.tarsus);
+      const maxReach = totalLen - 0.03;
+      {
+        const v = ankle.clone().sub(hipW);
+        const l = v.length();
+        if (l > maxReach) ankle = hipW.clone().addScaledVector(v.multiplyScalar(1 / l), maxReach);
+      }
+
+      /* knee solver */
+      let knee = solveKnee(hipW, ankle, this.femur, this.tibia, pole, restAxis, near, this.legRad);
+      if (!knee) knee = solveIK(hipW, ankle, this.femur, this.tibia, pole, restAxis, new THREE.Vector3());
+
+      /* obstacle-aware refinement */
+      const baseKnee = knee.clone();
+      if (near) {
+        const pad = this.legRad + 0.02;
+
+        const pushOut = (v) => {
+          for (const c of near) {
+            const p = penetration(v, c);
+            if (p.d < pad) v.addScaledVector(p.n, pad - p.d);
+          }
+          const gh = height(v.x, v.z) + pad * 0.5;
+          if (v.y < gh) v.y = gh;
+        };
+        const groundAt = (v) => height(v.x, v.z) + pad * 0.5;
+
+        pushOut(ankle);
+        {
+          const d = ankle.clone().sub(hipW);
+          const l = d.length();
+          if (l > maxReach) ankle = hipW.clone().addScaledVector(d.multiplyScalar(1 / l), maxReach);
+        }
+        pushOut(knee);
+
+        for (let step = 0; step < 16; step++) {
+          let maxPen = 0, penN = null;
+          let anklePen = 0, ankleN = null;
+
+          for (const [a, b] of [[hipW, knee], [knee, ankle]]) {
+            for (let s = 1; s < 10; s++) {
+              const p = a.clone().lerp(b, s / 10);
+              for (const c of near) {
+                const pen = pad - penetration(p, c).d;
+                if (pen > maxPen) { maxPen = pen; penN = penetration(p, c).n; }
+              }
+              const gp = groundAt(p) - p.y;
+              if (gp > maxPen) { maxPen = gp; penN = UP; }
+            }
+          }
+
+          for (let s = 0; s < 6; s++) {
+            const p = ankle.clone().lerp(foot, s / 6);
+            for (const c of near) {
+              const pen = pad - penetration(p, c).d;
+              if (pen > anklePen) { anklePen = pen; ankleN = penetration(p, c).n; }
+            }
+          }
+
+          let changed = false;
+          if (penN && maxPen > 0.01) {
+            knee.addScaledVector(penN, Math.min(maxPen * 1.4 + 0.02, 0.5));
+            pushOut(knee);
+            changed = true;
+          }
+          if (ankleN && anklePen > 0.01) {
+            ankle.addScaledVector(ankleN, Math.min(anklePen + 0.02, 0.12));
+            const gp = groundAt(ankle);
+            if (ankle.y < gp) ankle.y = gp;
+            const d = ankle.clone().sub(hipW);
+            const l = d.length();
+            if (l > maxReach) ankle = hipW.clone().addScaledVector(d.multiplyScalar(1 / l), maxReach);
+            changed = true;
+          }
+          if (!changed) break;
+        }
+
+        const delta = knee.clone().sub(baseKnee);
+        const dl = delta.length();
+        if (dl > 1.3) {
+          knee.copy(baseKnee).addScaledVector(delta, 1.3 / dl);
+          pushOut(knee);
+        }
+      }
+
+      setSegment(leg.femurM, hipW, knee, this.legRad);
+      setSegment(leg.tibiaM, knee, ankle, this.legRad * 0.8);
+      setSegment(leg.tarsusM, ankle, foot, this.legRad * 0.62);
+      leg.kneeM.position.copy(knee);
+      leg.hipM.position.copy(hipW);
+      leg._hipW = hipW;
+      leg._knee = knee;
+      leg._ankle = ankle;
+      leg._foot = foot;
+    }
+  }
+
+  get position() { return this.root.position; }
+}
+
+/* =========================================================================
+   FOLLOW CAMERA
+   ========================================================================= */
+class FollowCamera {
+  constructor(camera) {
+    this.camera = camera;
+    this.yaw = Math.PI;
+    this.pitch = 0.5;
+    this.dist = 15;
+    this.target = new THREE.Vector3(0, 2, 0);
+    this._d = null;
+  }
+
+  reset() {
+    this.yaw = Math.PI;
+    this.pitch = 0.5;
+    this.dist = 15;
+    this.target.set(0, 2, 0);
+    this._d = null;
+  }
+
+  addDrag(dx, dy) {
+    this.yaw -= dx * 0.005;
+    this.pitch = clamp(this.pitch - dy * 0.005, 0.06, 1.28);
+  }
+
+  zoom(delta) {
+    this.dist = clamp(this.dist * (1 + delta * 0.0011), 6, 34);
+  }
+
+  update(dt, spider, dragging) {
+    if (spider.curSpeed > 0.5 && !dragging && spider.up.y > 0.6) {
+      this.yaw = lerpAngle(this.yaw, spider.heading + Math.PI, 1 - Math.pow(0.72, dt));
+    }
+
+    const cosP = Math.cos(this.pitch);
+    const focus = spider.position;
+    this.target.lerp(new THREE.Vector3(focus.x, focus.y + 1, focus.z), 1 - Math.pow(7e-4, dt));
+
+    const dir = new THREE.Vector3(
+      this.target.x + Math.sin(this.yaw) * cosP * this.dist,
+      this.target.y + Math.sin(this.pitch) * this.dist,
+      this.target.z + Math.cos(this.yaw) * cosP * this.dist
+    ).sub(this.target);
+
+    const len = dir.length() || 0.001;
+    dir.multiplyScalar(1 / len);
+
+    const hit = raycastWorld(this.target.clone().addScaledVector(dir, 0.5), dir, len);
+    let desired = len;
+    if (hit && hit.t < len - 0.4) desired = Math.max(hit.t - 0.6, 4.5);
+
+    if (this._d == null) this._d = desired;
+    const k = desired < this._d ? 1 - Math.pow(6e-4, dt) : 1 - Math.pow(0.22, dt);
+    this._d += (desired - this._d) * k;
+
+    const camPos = this.target.clone().addScaledVector(dir, this._d);
+    this.camera.position.lerp(camPos, 1 - Math.pow(0.0018, dt));
+
+    const minY = height(this.camera.position.x, this.camera.position.z) + 1.6;
+    if (this.camera.position.y < minY) this.camera.position.y = minY;
+
+    this.camera.lookAt(this.target);
+  }
+}
+
+/* =========================================================================
+   INPUT (keyboard / mouse / touch)
+   ========================================================================= */
+class InputManager {
+  constructor(dom, camera) {
+    this.dom = dom;
+    this.camera = camera;
+    this.keys = {};
+    this.joyId = null;
+    this.joyBX = 0; this.joyBY = 0;
+    this.joyVX = 0; this.joyVY = 0;
+    this.camId = null;
+    this.camLX = 0; this.camLY = 0;
+    this.dragging = false;
+    this.sprintHeld = false;
+    this.JOYR = 46;
+
+    this.joyEl = document.getElementById('joy');
+    this.knobEl = document.getElementById('knob');
+    this.sprintEl = document.getElementById('sprint');
+    this.jumpEl = document.getElementById('jump');
+
+    this.onReset = null;
+    this.onJump = null;
+
+    this._bind();
+  }
+
+  _showJoy(x, y) {
+    this.joyEl.style.left = x + 'px';
+    this.joyEl.style.top = y + 'px';
+    this.joyEl.style.display = 'block';
+    this.knobEl.style.left = x + 'px';
+    this.knobEl.style.top = y + 'px';
+    this.knobEl.style.display = 'block';
+  }
+
+  _moveKnob(x, y) {
+    this.knobEl.style.left = x + 'px';
+    this.knobEl.style.top = y + 'px';
+  }
+
+  _hideJoy() {
+    this.joyEl.style.display = 'none';
+    this.knobEl.style.display = 'none';
+  }
+
+  _bind() {
+    addEventListener('keydown', (e) => {
+      this.keys[e.code] = true;
+      if (e.code === 'KeyR' && this.onReset) this.onReset();
+      if (e.code === 'Space' && !e.repeat && this.onJump) this.onJump(this.getInput().sprint);
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
+    });
+
+    addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+
+    addEventListener('blur', () => {
+      this.keys = {};
+      this.sprintHeld = false;
+      this.joyId = null;
+      this.joyVX = this.joyVY = 0;
+      this._hideJoy();
+    });
+
+    const dom = this.dom;
+    dom.addEventListener('pointerdown', (e) => {
+      const leftSide = e.clientX < innerWidth * 0.46;
+      if (e.pointerType === 'touch' && leftSide && this.joyId === null) {
+        this.joyId = e.pointerId;
+        this.joyBX = e.clientX;
+        this.joyBY = e.clientY;
+        this.joyVX = 0;
+        this.joyVY = 0;
+        this._showJoy(e.clientX, e.clientY);
+      } else if (this.camId === null) {
+        this.camId = e.pointerId;
+        this.camLX = e.clientX;
+        this.camLY = e.clientY;
+        this.dragging = true;
+      }
+      try { dom.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    dom.addEventListener('pointermove', (e) => {
+      if (e.pointerId === this.joyId) {
+        let dx = e.clientX - this.joyBX;
+        let dy = e.clientY - this.joyBY;
+        const len = Math.hypot(dx, dy);
+        if (len > this.JOYR) { dx *= this.JOYR / len; dy *= this.JOYR / len; }
+        this.joyVX = dx / this.JOYR;
+        this.joyVY = -dy / this.JOYR;
+        this._moveKnob(this.joyBX + dx, this.joyBY + dy);
+      } else if (e.pointerId === this.camId) {
+        this.camera.addDrag(e.clientX - this.camLX, e.clientY - this.camLY);
+        this.camLX = e.clientX;
+        this.camLY = e.clientY;
+      }
+    });
+
+    const release = (e) => {
+      if (e.pointerId === this.joyId) {
+        this.joyId = null;
+        this.joyVX = 0;
+        this.joyVY = 0;
+        this._hideJoy();
+      }
+      if (e.pointerId === this.camId) {
+        this.camId = null;
+        this.dragging = false;
+      }
+    };
+    dom.addEventListener('pointerup', release);
+    dom.addEventListener('pointercancel', release);
+
+    dom.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.camera.zoom(e.deltaY);
+    }, { passive: false });
+
+    const sprintDown = (e) => {
+      e.preventDefault();
+      this.sprintHeld = true;
+      this.sprintEl.classList.add('active');
+    };
+    const sprintUp = (e) => {
+      if (e) e.preventDefault();
+      this.sprintHeld = false;
+      this.sprintEl.classList.remove('active');
+    };
+    this.sprintEl.addEventListener('pointerdown', sprintDown);
+    this.sprintEl.addEventListener('pointerup', sprintUp);
+    this.sprintEl.addEventListener('pointercancel', sprintUp);
+    this.sprintEl.addEventListener('pointerleave', sprintUp);
+
+    if (this.jumpEl) {
+      this.jumpEl.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (this.onJump) this.onJump(this.getInput().sprint);
+      });
+    }
+
+    addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.keys = {};
+        this.joyId = null;
+        this.joyVX = this.joyVY = 0;
+        this._hideJoy();
+      }
+    });
+
+    if (COARSE) {
+      this.sprintEl.style.display = 'flex';
+      if (this.jumpEl) this.jumpEl.style.display = 'flex';
+    }
+  }
+
+  getInput() {
+    let ix = 0, iy = 0;
+    if (this.joyId !== null) {
+      ix = this.joyVX;
+      iy = this.joyVY;
+    } else {
+      const k = this.keys;
+      if (k.KeyW || k.ArrowUp) iy += 1;
+      if (k.KeyS || k.ArrowDown) iy -= 1;
+      if (k.KeyD || k.ArrowRight) ix += 1;
+      if (k.KeyA || k.ArrowLeft) ix -= 1;
+    }
+    const sprint = this.sprintHeld || this.keys.ShiftLeft || this.keys.ShiftRight;
+    return { ix, iy, sprint, camYaw: this.camera.yaw };
+  }
+
+  resetKeys() {
+    this.keys = {};
+    this.sprintHeld = false;
+    this.joyId = null;
+    this.joyVX = this.joyVY = 0;
+    this._hideJoy();
+  }
+}
+
+/* =========================================================================
+   AUTOPILOT (for deterministic seek)
+   ========================================================================= */
+class Autopilot {
+  constructor() {
+    this.t = 0;
+    this.jumpDone = false;
+    this.pounceDone = false;
+    this.tetherDone = false;
+    this._wander = 0;
+  }
+
+  reset() {
+    this.t = 0;
+    this.jumpDone = false;
+    this.pounceDone = false;
+    this.tetherDone = false;
+    this._wander = 0;
+  }
+
+  input(t) {
+    // Widget: wander around terrain with turns; jump at ~5s; pounce/tether at ~10s.
+    const iy = 0.75; // always pushing forward
+
+    // Turn pattern: gentle oscillation, plus a big turn around 3s and 8s
+    let ix = 0;
+    const baseTurn = Math.sin(t * 0.9) * 0.35;
+    ix += baseTurn;
+
+    // Occasional larger turns
+    if (t > 2.8 && t < 3.6) ix += 0.9;
+    if (t > 7.8 && t < 8.6) ix -= 0.9;
+    if (t > 12.5 && t < 13.5) ix += 0.6;
+
+    return { ix, iy, sprint: false, camYaw: 0 };
+  }
+}
+
+/* =========================================================================
+   BOOTSTRAP + RENDER LOOP
+   ========================================================================= */
+const params = new URLSearchParams(location.search);
+const RENDER_MODE = params.has('render');
+
+const ui = {
+  fps: document.getElementById('fps'),
+  spd: document.getElementById('spd'),
+  grade: document.getElementById('grade'),
+  hint: document.getElementById('hint'),
+  panel: document.getElementById('panel'),
+  panelHead: document.getElementById('panelHead'),
+  panelTog: document.getElementById('panelTog'),
+  sliders: document.getElementById('sliders'),
+  reset: document.getElementById('reset'),
+  err: document.getElementById('err'),
+  hud: document.getElementById('hud'),
+  joy: document.getElementById('joy'),
+  knob: document.getElementById('knob'),
+  sprint: document.getElementById('sprint'),
+  jump: document.getElementById('jump')
+};
+
+function showError(msg) {
+  ui.err.style.display = 'flex';
+  ui.err.textContent = msg;
+}
+
+let renderer, scene, camera, world, spider, followCam, input, autopilot;
+let _lastTime = 0;
+let _fpsAccum = 0, _fpsFrames = 0, _statsAccum = 0;
+let _running = false;
+
+function init() {
+  const app = document.getElementById('app');
+
+  renderer = new THREE.WebGLRenderer({
+    antialias: !COARSE,
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: true
+  });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, COARSE ? 1.5 : 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  app.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 700);
+
+  world = new Environment(scene);
+  spider = new Spider(scene, world);
+  followCam = new FollowCamera(camera);
+  input = new InputManager(renderer.domElement, followCam);
+  autopilot = new Autopilot();
+
+  input.onReset = () => {
+    spider.reset();
+    followCam.reset();
+    world.resetDust();
+  };
+  input.onJump = (sprint) => spider.jump(sprint);
+
+  buildTuningPanel();
+
+  ui.reset.addEventListener('click', () => {
+    spider.reset();
+    followCam.reset();
+    world.resetDust();
+  });
+
+  ui.hint.textContent = COARSE
+    ? 'LEFT STICK · MOVE     RIGHT DRAG · LOOK     JUMP     BOOST (hold + JUMP = lunge)'
+    : 'WASD · MOVE     DRAG · LOOK     SCROLL · ZOOM     SPACE · JUMP     SHIFT · BOOST (+SPACE = lunge)     R · RESET';
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // camera follows spider on first frame
+  updateCameraInstant();
+
+  if (RENDER_MODE) {
+    ui.hud.style.display = 'none';
+    ui.hint.style.display = 'none';
+    ui.reset.style.display = 'none';
+    ui.panel.style.display = 'none';
+    ui.joy.style.display = 'none';
+    ui.knob.style.display = 'none';
+    ui.sprint.style.display = 'none';
+    ui.jump.style.display = 'none';
+  }
+
+  window.GOSSAMER = {
+    scene, spider, world, camera, renderer, spiderCam: followCam, input,
+    drive(frames, ix, iy, sprint) {
+      for (let i = 0; i < frames; i++) {
+        spider.update(1 / 60, { ix: ix || 0, iy: iy || 0, sprint: !!sprint, camYaw: followCam.yaw });
+      }
+      world.updateDust(1 / 60);
+      followCam.update(1 / 60, spider, false);
+      renderer.render(scene, camera);
+    }
+  };
+
+  window.__THREE_GAME_DIAGNOSTICS__ = {
+    renderer: renderer.info,
+    get state() {
+      return {
+        fps: _fpsAccum > 0 ? Math.round(_fpsFrames / _fpsAccum) : 0,
+        spider: {
+          pos: spider.pos.toArray().map(v => +v.toFixed(2)),
+          up: spider.up.toArray().map(v => +v.toFixed(2)),
+          speed: +spider.curSpeed.toFixed(2),
+          airborne: spider.airborne
+        },
+        drawCalls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles
+      };
+    }
+  };
+
+  // ---- deterministic seek implementation ----
+  window.seek = function (targetTime) {
+    const t = Math.max(0, +targetTime || 0);
+    const dt = 1 / 60;
+    const steps = Math.round(t / dt);
+
+    // reset
+    srand(RANDOM_SEED);
+    world.resetDust();
+    spider.reset();
+    followCam.reset();
+    autopilot.reset();
+
+    for (let i = 0; i < steps; i++) {
+      const timeNow = i * dt;
+      const aIn = autopilot.input(timeNow);
+      const camYaw = followCam.yaw;
+
+      // scripted events
+      if (!autopilot.jumpDone && timeNow >= 5.0) {
+        autopilot.jumpDone = true;
+        spider.jump(false);
+      }
+      if (!autopilot.pounceDone && timeNow >= 10.0) {
+        autopilot.pounceDone = true;
+        // pounce along forward direction
+        const fwd = spider.fwd.clone();
+        fwd.y = 0;
+        if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, 1);
+        fwd.normalize();
+        spider.pounce(fwd, 1.0);
+        // attach tether to a suitable surface ahead
+        const origin = spider.pos.clone().add(fwd.clone().multiplyScalar(2)).add(new THREE.Vector3(0, 6, 0));
+        const hit = raycastWorld(origin, fwd.clone().add(new THREE.Vector3(0, -0.4, 0)).normalize(), 40);
+        if (hit && hit.point.distanceTo(spider.pos) > 3) {
+          spider.attachTether(hit.point);
+        }
+      }
+      if (spider.tether && !autopilot.tetherDone && timeNow >= 11.0) {
+        autopilot.tetherDone = true;
+        spider.reel(3.5);
+      }
+
+      spider.update(dt, { ix: aIn.ix, iy: aIn.iy, sprint: aIn.sprint, camYaw });
+      world.updateDust(dt);
+      followCam.update(dt, spider, false);
+    }
+
+    renderer.render(scene, camera);
+    return {
+      time: t,
+      steps,
+      spider: {
+        pos: spider.pos.toArray(),
+        up: spider.up.toArray(),
+        airborne: spider.airborne,
+        hasTether: !!spider.tether
+      }
+    };
+  };
+
+  if (RENDER_MODE) {
+    window.renderReady = true;
+  } else {
+    _running = true;
+    _lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+}
+
+function updateCameraInstant() {
+  const cosP = Math.cos(followCam.pitch);
+  followCam.target.set(spider.pos.x, spider.pos.y + 1, spider.pos.z);
+  const dir = new THREE.Vector3(
+    followCam.target.x + Math.sin(followCam.yaw) * cosP * followCam.dist,
+    followCam.target.y + Math.sin(followCam.pitch) * followCam.dist,
+    followCam.target.z + Math.cos(followCam.yaw) * cosP * followCam.dist
+  ).sub(followCam.target);
+  const len = dir.length() || 0.001;
+  dir.multiplyScalar(1 / len);
+  followCam._d = len;
+  camera.position.copy(followCam.target.clone().addScaledVector(dir, len));
+  const minY = height(camera.position.x, camera.position.z) + 1.6;
+  if (camera.position.y < minY) camera.position.y = minY;
+  camera.lookAt(followCam.target);
+}
+
+let _statsTimer = 0;
+
+function loop(now) {
+  if (!_running) return;
+  requestAnimationFrame(loop);
+
+  const dt = Math.min((now - _lastTime) / 1000, 0.033);
+  _lastTime = now;
+  if (dt <= 0) return;
+
+  try {
+    const inp = input.getInput();
+    spider.update(dt, inp);
+    world.updateDust(dt);
+    followCam.update(dt, spider, input.dragging);
+    renderer.render(scene, camera);
+  } catch (e) {
+    _running = false;
+    showError('Runtime error: ' + (e && e.message ? e.message : e));
+    console.error(e);
+    return;
+  }
+
+  _fpsAccum += dt;
+  _fpsFrames++;
+  _statsAccum += dt;
+  if (_statsAccum > 0.4) {
+    ui.fps.textContent = Math.round(_fpsFrames / _fpsAccum);
+    ui.spd.textContent = spider.curSpeed.toFixed(1);
+    const upY = spider.up.y;
+    const grade = upY > 0.93 ? 'FLAT' : upY > 0.55 ? 'INCLINE' : upY > -0.3 ? 'WALL' : 'OVERHANG';
+    ui.grade.textContent = grade;
+    ui.grade.style.color = upY < 0.55 ? '#ff3bd4' : '#22d3ee';
+    _fpsAccum = 0;
+    _fpsFrames = 0;
+    _statsAccum = 0;
+  }
+}
+
+/* =========================================================================
+   TUNING PANEL
+   ========================================================================= */
+function buildTuningPanel() {
+  const defs = [
+    { label: 'Speed', min: 1, max: 12, step: 0.5, get: () => spider.baseSpeed, set: v => spider.baseSpeed = v },
+    { label: 'Ride height', min: 1.5, max: 3.6, step: 0.05, get: () => spider.rideClear, set: v => spider.rideClear = v },
+    { label: 'Step height', min: 0.2, max: 1.4, step: 0.05, get: () => spider.stepH, set: v => spider.stepH = v },
+    { label: 'Gait rate', min: 0.6, max: 2.6, step: 0.05, get: () => spider.baseFreq, set: v => spider.baseFreq = v },
+    { label: 'Turn rate', min: 0.6, max: 3, step: 0.1, get: () => spider.turnRate, set: v => spider.turnRate = v },
+    { label: 'Stride', min: 1.2, max: 3.4, step: 0.1, get: () => spider.maxStride, set: v => spider.maxStride = v },
+    { label: 'Knee swivel range', min: 0.5, max: 3.14, step: 0.05, get: () => ikSettings.aRange, set: v => ikSettings.aRange = v },
+    { label: 'Knee swivel samples', min: 2, max: 14, step: 1, get: () => ikSettings.aSamp, set: v => ikSettings.aSamp = v }
+  ];
+
+  const fmt = (v) => Math.abs(v) >= 10 ? '' + Math.round(v) : (+v).toFixed(2);
+
+  // IK toggle
+  {
+    const row = document.createElement('div');
+    row.className = 'tog';
+    const label = document.createElement('span');
+    label.textContent = 'IK SOLVER';
+    const val = document.createElement('b');
+    const sync = () => {
+      val.textContent = ikSettings.decomposed ? 'DECOMPOSED' : 'ANALYTIC';
+      row.classList.toggle('on', !!ikSettings.decomposed);
+    };
+    sync();
+    row.appendChild(label);
+    row.appendChild(val);
+    row.addEventListener('click', () => { ikSettings.decomposed = !ikSettings.decomposed; sync(); });
+    row.addEventListener('pointerdown', e => e.stopPropagation());
+    ui.sliders.appendChild(row);
+  }
+
+  // Body conform toggle
+  {
+    const row = document.createElement('div');
+    row.className = 'tog';
+    const label = document.createElement('span');
+    label.textContent = 'BODY CONFORM';
+    const val = document.createElement('b');
+    const sync = () => {
+      val.textContent = spider.bodyConform ? 'ON' : 'OFF';
+      row.classList.toggle('on', !!spider.bodyConform);
+    };
+    sync();
+    row.appendChild(label);
+    row.appendChild(val);
+    row.addEventListener('click', () => { spider.bodyConform = !spider.bodyConform; sync(); });
+    row.addEventListener('pointerdown', e => e.stopPropagation());
+    ui.sliders.appendChild(row);
+  }
+
+  // Body flex toggle
+  {
+    const row = document.createElement('div');
+    row.className = 'tog';
+    const label = document.createElement('span');
+    label.textContent = 'BODY FLEX';
+    const val = document.createElement('b');
+    const sync = () => {
+      val.textContent = spider.bodyFlex ? 'ON' : 'OFF';
+      row.classList.toggle('on', !!spider.bodyFlex);
+    };
+    sync();
+    row.appendChild(label);
+    row.appendChild(val);
+    row.addEventListener('click', () => { spider.bodyFlex = !spider.bodyFlex; sync(); });
+    row.addEventListener('pointerdown', e => e.stopPropagation());
+    ui.sliders.appendChild(row);
+  }
+
+  for (const d of defs) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sld';
+    const lab = document.createElement('label');
+    const name = document.createElement('span');
+    name.textContent = d.label;
+    const val = document.createElement('b');
+    val.textContent = fmt(d.get());
+    lab.appendChild(name);
+    lab.appendChild(val);
+
+    const inp = document.createElement('input');
+    inp.type = 'range';
+    inp.min = d.min;
+    inp.max = d.max;
+    inp.step = d.step;
+    inp.value = d.get();
+    inp.addEventListener('input', () => {
+      const v = parseFloat(inp.value);
+      d.set(v);
+      val.textContent = fmt(v);
+    });
+    inp.addEventListener('pointerdown', e => e.stopPropagation());
+
+    wrap.appendChild(lab);
+    wrap.appendChild(inp);
+    ui.sliders.appendChild(wrap);
+  }
+
+  ui.panelHead.addEventListener('click', () => {
+    ui.panel.classList.toggle('closed');
+    ui.panelTog.innerHTML = ui.panel.classList.contains('closed') ? '+' : '&ndash;';
+  });
+  ui.panel.addEventListener('pointerdown', e => e.stopPropagation());
+
+  if (COARSE) {
+    ui.panel.classList.add('closed');
+    ui.panelTog.innerHTML = '+';
+  }
+}
+
+/* =========================================================================
+   GO
+   ========================================================================= */
+try {
+  init();
+} catch (e) {
+  showError('Init error: ' + (e && e.message ? e.message : e));
+  console.error(e);
+}
+</script>
+</body>
+</html>
